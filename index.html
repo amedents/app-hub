@@ -72,7 +72,7 @@
     </div>
     <div class="total" id="total"></div>
     <div class="hint">
-      Backs up <b>only your apps' data</b> (the 5 keys below) into a single file — one
+      Backs up <b>only your apps' data</b> (the data-storing apps above) into a single file — one
       <b>LocalSend</b> transfer to your other device instead of five. Import writes that data back.
       <br/><span class="warnc">Heads-up:</span> this works in a normal browser tab (best on your PC, where all
       apps share storage). On iPhone, apps you added to the Home Screen as separate icons may keep separate
@@ -96,7 +96,8 @@
     {key:"lyriccatcher_v1", name:"Lyric Catcher",    path:"lyric-catcher",     glyph:"♪", a1:"#a06bff", a2:"#5b8cff"},
     {key:"twlive_v1",       name:"Twitch Live Check",path:"twitch-live",       glyph:"●", a1:"#9146ff", a2:"#eb0400"},
     {key:"aniradar_v1",     name:"Anime Radar",      path:"anime-radar",       glyph:"◎", a1:"#7c9cff", a2:"#a06bff"},
-    {key:"watchpos_v1",     name:"Where Was I?",     path:"where-was-i",       glyph:"▶", a1:"#28c2a8", a2:"#5b8cff"}
+    {key:"watchpos_v1",     name:"Where Was I?",     path:"where-was-i",       glyph:"▶", a1:"#28c2a8", a2:"#5b8cff"},
+    {key:"qa_belt_tab",     name:"QA Utility Belt",  path:"qa-utility-belt",   glyph:"⚙", a1:"#5bd99a", a2:"#5b8cff", tool:true}
   ];
   const BASE="https://amedents.github.io/";
 
@@ -109,12 +110,12 @@
     const box=document.getElementById("apps"); box.innerHTML="";
     let present=0, bytes=0;
     APPS.forEach(app=>{
-      const v=readKey(app.key); const has=!!v; if(has){ present++; bytes+=v.length; }
+      const v=app.tool?null:readKey(app.key); const has=!!v; if(has){ present++; bytes+=v.length; }
       const a=document.createElement("a"); a.className="app"; a.href=BASE+app.path+"/"; a.target="_blank"; a.rel="noopener noreferrer";
       const b=document.createElement("div"); b.className="badge"; b.style.setProperty("--a1",app.a1); b.style.setProperty("--a2",app.a2); b.textContent=app.glyph; a.appendChild(b);
       const info=document.createElement("div"); info.className="info";
       const nm=document.createElement("div"); nm.className="nm"; nm.textContent=app.name; info.appendChild(nm); // text node (static, but consistent & safe)
-      const st=document.createElement("div"); st.className="st"+(has?" has":""); st.textContent=has?("saved data · "+sizeOf(v)):"no data yet"; info.appendChild(st);
+      const st=document.createElement("div"); st.className="st"+(has?" has":""); st.textContent=app.tool?"local tool · nothing to back up":(has?("saved data · "+sizeOf(v)):"no data yet"); info.appendChild(st);
       a.appendChild(info);
       const ar=document.createElement("div"); ar.className="arrow"; ar.textContent="↗"; a.appendChild(ar);
       box.appendChild(a);
@@ -130,12 +131,12 @@
   function exportAll(){
     const data={};
     let n=0;
-    APPS.forEach(app=>{ const v=readKey(app.key); if(v!==null){ data[app.key]=v; n++; } });
+    APPS.forEach(app=>{ if(app.tool) return; const v=readKey(app.key); if(v!==null){ data[app.key]=v; n++; } });
     if(!n){ alert("There's no app data on this device to back up yet."); return; }
     const payload={ app:"my-apps-hub", version:1, exportedAt:new Date().toISOString(), keys:Object.keys(data), data:data };
     download("all-apps-backup-"+todayStr()+".json", JSON.stringify(payload,null,2));
   }
-  const KNOWN=new Set(APPS.map(a=>a.key));
+  const KNOWN=new Set(APPS.filter(a=>!a.tool).map(a=>a.key));
   function importAll(file){
     const r=new FileReader();
     r.onload=()=>{ try{
