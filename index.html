@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="My Apps" />
+<meta name="theme-color" content="#0c0f16" />
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png" />
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<title>My Apps — Hub</title>
+<style>
+  :root{
+    --bg:#0c0f16; --panel:#151a26; --panel2:#1d2331; --line:#2a3245;
+    --txt:#eaecf3; --muted:#9aa3b8; --accent:#5b8cff; --good:#3ecf8e; --warn:#ffb454;
+    --radius:16px; --shadow:0 8px 30px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:radial-gradient(1100px 520px at 85% -10%,#16203a,transparent),var(--bg);
+    color:var(--txt); min-height:100vh; padding:24px; line-height:1.45;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  header{margin-bottom:6px}
+  h1{font-size:22px;margin:0;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:13px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:22px 0 12px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}body{padding:14px}}
+  .app{display:flex;align-items:center;gap:13px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform .05s,border-color .15s}
+  .app:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .app:active{transform:translateY(0)}
+  .badge{flex:0 0 auto;width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#0b1020;background:linear-gradient(135deg,var(--a1),var(--a2))}
+  .app .info{flex:1;min-width:0}
+  .app .nm{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .app .st{font-size:12px;color:var(--muted);margin-top:2px}
+  .app .st.has{color:var(--good)}
+  .arrow{color:var(--muted);font-size:18px;flex:0 0 auto}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-top:8px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--accent);color:#0b1020;font-weight:700;border-radius:10px;padding:10px 14px;font-size:14px;transition:transform .05s,filter .15s}
+  button:hover{filter:brightness(1.08)} button:active{transform:translateY(1px)}
+  button.ghost{background:var(--panel2);color:var(--txt);font-weight:600}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.55}
+  .total{font-size:13px;color:var(--muted);margin-top:8px}
+  .total b{color:var(--txt)}
+  .footer{color:var(--muted);font-size:12px;text-align:center;margin-top:18px;line-height:1.6}
+  .ok{color:var(--good)} .warnc{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>My Apps</h1>
+    <div class="sub">All your private tools in one place — nothing here leaves your device.</div>
+  </header>
+
+  <h2>Open an app</h2>
+  <div class="grid" id="apps"></div>
+
+  <h2>Back up everything (one file)</h2>
+  <div class="card">
+    <div class="row">
+      <button id="exportAll">⬇ Export ALL app data</button>
+      <button class="ghost" id="importAll">⬆ Import ALL</button>
+      <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
+    </div>
+    <div class="total" id="total"></div>
+    <div class="hint">
+      Backs up <b>only your apps' data</b> (the 5 keys below) into a single file — one
+      <b>LocalSend</b> transfer to your other device instead of five. Import writes that data back.
+      <br/><span class="warnc">Heads-up:</span> this works in a normal browser tab (best on your PC, where all
+      apps share storage). On iPhone, apps you added to the Home Screen as separate icons may keep separate
+      storage — there, each app's own Export/Import is the reliable path. Importing here <b>overwrites</b> the
+      listed apps' data on <i>this</i> device.
+    </div>
+  </div>
+
+  <div class="footer">
+    A launcher + combined backup for your own offline apps. No accounts, no servers, no tracking.
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  // Same-origin apps (all under amedents.github.io) — so this page can read their localStorage.
+  const APPS=[
+    {key:"calwt_v1",        name:"Calorie & Weight", path:"calorie-companion", glyph:"◐", a1:"#5b8cff", a2:"#3ecf8e"},
+    {key:"tobuy_v1",        name:"To-Buy list",      path:"to-buy",            glyph:"✓", a1:"#3ecf8e", a2:"#5b8cff"},
+    {key:"lyriccatcher_v1", name:"Lyric Catcher",    path:"lyric-catcher",     glyph:"♪", a1:"#a06bff", a2:"#5b8cff"},
+    {key:"twlive_v1",       name:"Twitch Live Check",path:"twitch-live",       glyph:"●", a1:"#9146ff", a2:"#eb0400"},
+    {key:"aniradar_v1",     name:"Anime Radar",      path:"anime-radar",       glyph:"◎", a1:"#7c9cff", a2:"#a06bff"}
+  ];
+  const BASE="https://amedents.github.io/";
+
+  function readKey(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function sizeOf(v){ return v? (v.length>=1024 ? (v.length/1024).toFixed(1)+" KB" : v.length+" B") : ""; }
+
+  function openUrl(url){ const a=document.createElement("a"); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; document.body.appendChild(a); a.click(); a.remove(); }
+
+  function renderApps(){
+    const box=document.getElementById("apps"); box.innerHTML="";
+    let present=0, bytes=0;
+    APPS.forEach(app=>{
+      const v=readKey(app.key); const has=!!v; if(has){ present++; bytes+=v.length; }
+      const a=document.createElement("a"); a.className="app"; a.href=BASE+app.path+"/"; a.target="_blank"; a.rel="noopener noreferrer";
+      const b=document.createElement("div"); b.className="badge"; b.style.setProperty("--a1",app.a1); b.style.setProperty("--a2",app.a2); b.textContent=app.glyph; a.appendChild(b);
+      const info=document.createElement("div"); info.className="info";
+      const nm=document.createElement("div"); nm.className="nm"; nm.textContent=app.name; info.appendChild(nm); // text node (static, but consistent & safe)
+      const st=document.createElement("div"); st.className="st"+(has?" has":""); st.textContent=has?("saved data · "+sizeOf(v)):"no data yet"; info.appendChild(st);
+      a.appendChild(info);
+      const ar=document.createElement("div"); ar.className="arrow"; ar.textContent="↗"; a.appendChild(ar);
+      box.appendChild(a);
+    });
+    const t=document.getElementById("total");
+    const totalSize = bytes>=1024 ? (bytes/1024).toFixed(1)+" KB" : bytes+" B";
+    t.innerHTML = present ? ("<b>"+present+"</b> of "+APPS.length+" apps have data here · "+totalSize+" total") : "No app data on this device yet.";
+  }
+
+  // ---- backup all ----
+  function download(fn,txt){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"})); a.download=fn; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},0); }
+  function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function exportAll(){
+    const data={};
+    let n=0;
+    APPS.forEach(app=>{ const v=readKey(app.key); if(v!==null){ data[app.key]=v; n++; } });
+    if(!n){ alert("There's no app data on this device to back up yet."); return; }
+    const payload={ app:"my-apps-hub", version:1, exportedAt:new Date().toISOString(), keys:Object.keys(data), data:data };
+    download("all-apps-backup-"+todayStr()+".json", JSON.stringify(payload,null,2));
+  }
+  const KNOWN=new Set(APPS.map(a=>a.key));
+  function importAll(file){
+    const r=new FileReader();
+    r.onload=()=>{ try{
+      const p=JSON.parse(r.result);
+      if(!p || p.app!=="my-apps-hub" || !p.data || typeof p.data!=="object") throw new Error("not a hub backup");
+      // Only ever write our own app keys — never arbitrary keys from the file.
+      const incoming=Object.keys(p.data).filter(k=>KNOWN.has(k));
+      if(!incoming.length){ alert("That backup has no recognised app data."); return; }
+      const names=incoming.map(k=>{ const a=APPS.find(x=>x.key===k); return a?a.name:k; });
+      if(!confirm("This will OVERWRITE the following apps' data on THIS device:\n\n• "+names.join("\n• ")+"\n\nContinue?")) return;
+      let ok=0;
+      incoming.forEach(k=>{ const val=p.data[k]; if(typeof val==="string"){ try{ localStorage.setItem(k,val); ok++; }catch(e){} } });
+      renderApps();
+      alert("Restored "+ok+" app"+(ok===1?"":"s")+". Open each app to see its data.");
+    }catch(e){ alert("Couldn't read that file — is it an All-Apps backup made here?"); } };
+    r.readAsText(file);
+  }
+
+  document.getElementById("exportAll").onclick=exportAll;
+  document.getElementById("importAll").onclick=()=>document.getElementById("importFile").click();
+  document.getElementById("importFile").addEventListener("change",e=>{ if(e.target.files[0]) importAll(e.target.files[0]); e.target.value=""; });
+
+  renderApps();
+})();
+</script>
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
+</body>
+</html>
