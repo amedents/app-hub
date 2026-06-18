@@ -97,7 +97,8 @@
     {key:"aniradar_v1",     name:"Anime Radar",      path:"anime-radar",       glyph:"◎", a1:"#7c9cff", a2:"#a06bff"},
     {key:"forzatune_v1",    name:"Forza Tune Calc",  path:"forza-tune-calc",   glyph:"⛭", a1:"#ff7a3c", a2:"#5b8cff"},
     {key:"village_ffa_v1",  name:"Ragdoll Village",  path:"ragdoll-village",   glyph:"⌖", a1:"#5bd6c0", a2:"#ff6b6b"},
-    {key:"readmark_v1",     name:"ReadMark",         path:"readmark",          glyph:"▤", a1:"#3fd0a8", a2:"#142632"}
+    {key:"readmark_v1",     name:"ReadMark",         path:"readmark",          glyph:"▤", a1:"#3fd0a8", a2:"#142632"},
+    {key:"blockcraft_v1",   name:"BlockCraft",       path:"blockcraft",        glyph:"⛏", a1:"#6ab04a", a2:"#7a5436"}
   ];
   const BASE="https://amedents.github.io/";
 
@@ -168,7 +169,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260618192221";
+  var BUILD="20260619013448";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
