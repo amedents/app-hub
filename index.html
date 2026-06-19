@@ -61,7 +61,18 @@
   #ov .ovbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
   #ov .ovbar button{background:var(--panel2);color:var(--txt);font-weight:700;padding:8px 13px;font-size:14px}
   #ov .ovttl{font-size:14px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #ov iframe{flex:1;width:100%;border:0;background:var(--bg)}
+  #ov iframe{flex:1;width:100%;border:0;background:var(--bg);opacity:0;transition:opacity .15s ease}
+  /* Reveal the iframe ONLY after its document has painted (JS adds .ready on load). While loading it
+     is invisible over the dark #ov backdrop, so the app's white first-paint frame is never seen — this
+     is what kills the flash that REMAINED after color-scheme + no-navigation (an iframe still paints a
+     white canvas while its document loads; the element's background doesn't cover it). */
+  #ov.ready iframe{opacity:1}
+  #ov .spin{position:absolute;left:50%;top:54%;width:26px;height:26px;margin:-13px 0 0 -13px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:ovspin .8s linear infinite;display:none}
+  #ov.loading .spin{display:block}
+  @keyframes ovspin{to{transform:rotate(360deg)}}
+  .nudge{display:none;background:rgba(255,180,84,.12);border:1px solid var(--warn);color:#ffd9a0;border-radius:12px;padding:11px 13px;margin:12px 0 2px;font-size:13px;line-height:1.5;cursor:pointer}
+  .nudge b{color:var(--warn)}
+  .bstat{font-size:12.5px;margin-top:6px} .bstat.ok{color:var(--good)} .bstat.warnc{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -70,6 +81,8 @@
     <h1>My Apps</h1>
     <div class="sub">All your private tools in one place — nothing here leaves your device.</div>
   </header>
+
+  <div id="nudge" class="nudge" role="button" tabindex="0"></div>
 
   <h2>Open an app</h2>
   <div class="grid" id="apps"></div>
@@ -82,6 +95,7 @@
       <input type="file" id="importFile" accept="application/json,.json" style="display:none" />
     </div>
     <div class="total" id="total"></div>
+    <div class="bstat" id="backupStatus"></div>
     <div class="hint">
       Backs up <b>only your apps' data</b> (the data-storing apps above) into a single file — one
       <b>LocalSend</b> transfer to your other device instead of five. Import writes that data back.
@@ -100,6 +114,7 @@
 <div id="ov" role="dialog" aria-modal="true" aria-label="App">
   <div class="ovbar"><button id="ovBack" type="button">‹ Apps</button><div class="ovttl" id="ovTtl"></div></div>
   <iframe id="ovFrame" title="App"></iframe>
+  <div class="spin" aria-hidden="true"></div>
 </div>
 
 <script>
@@ -123,20 +138,28 @@
 
   // ---- in-place app overlay (kills the iOS standalone navigation white-flash; see CSS note) ----
   const ov=document.getElementById("ov"), ovFrame=document.getElementById("ovFrame"), ovTtl=document.getElementById("ovTtl");
-  let ovPushed=false;
+  let ovPushed=false, ovTimer=0;
+  function revealApp(){ ov.classList.add("ready"); ov.classList.remove("loading"); }
   function openApp(app){
     ovTtl.textContent=app.name;
-    ovFrame.src=BASE+app.path+"/";            // same-origin: shares localStorage, no cross-frame limits
-    ov.classList.add("show");
+    ov.classList.remove("ready");
+    ov.classList.add("show","loading");        // dark backdrop + spinner; iframe stays opacity:0
     document.body.style.overflow="hidden";
+    // Reveal the iframe ONLY once its document has painted, so its white first-paint frame never shows.
+    ovFrame.onload=revealApp;
+    ovFrame.src=BASE+app.path+"/";             // same-origin: shares localStorage, no cross-frame limits
+    clearTimeout(ovTimer);
+    ovTimer=setTimeout(revealApp,6000);        // safety: reveal anyway if load is slow/blocked
     ovPushed=false;
     // Push a history entry so an OS back-gesture (where it exists) closes the app instead of the Hub.
     try{ history.pushState({ov:1},""); ovPushed=true; }catch(e){}
   }
   function closeApp(){
     if(!ov.classList.contains("show")) return;
-    ov.classList.remove("show");
-    ovFrame.src="about:blank";                // unload the app: stop its timers, free memory
+    clearTimeout(ovTimer);
+    ovFrame.onload=null;
+    ov.classList.remove("show","ready","loading");
+    ovFrame.src="about:blank";                 // unload the app: stop its timers, free memory
     document.body.style.overflow="";
   }
   document.getElementById("ovBack").addEventListener("click",()=>{ if(ovPushed){ ovPushed=false; history.back(); } else { closeApp(); } });
@@ -173,6 +196,7 @@
     if(!n){ alert("There's no app data on this device to back up yet."); return; }
     const payload={ app:"my-apps-hub", version:1, exportedAt:new Date().toISOString(), keys:Object.keys(data), data:data };
     download("all-apps-backup-"+todayStr()+".json", JSON.stringify(payload,null,2));
+    markBackedUp();
   }
   const KNOWN=new Set(APPS.filter(a=>!a.tool).map(a=>a.key));
   function importAll(file){
@@ -188,16 +212,46 @@
       let ok=0;
       incoming.forEach(k=>{ const val=p.data[k]; if(typeof val==="string"){ try{ localStorage.setItem(k,val); ok++; }catch(e){} } });
       renderApps();
+      updateBackupUI();
       alert("Restored "+ok+" app"+(ok===1?"":"s")+". Open each app to see its data.");
     }catch(e){ alert("Couldn't read that file — is it an All-Apps backup made here?"); } };
     r.readAsText(file);
   }
 
+  // ---- backup freshness nudge (so removing the Hub can't silently cost everything) ----
+  const META_KEY="hub_meta_v1";
+  function loadMeta(){ try{ return JSON.parse(localStorage.getItem(META_KEY))||{}; }catch(e){ return {}; } }
+  function saveMeta(m){ try{ localStorage.setItem(META_KEY, JSON.stringify(m)); }catch(e){} }
+  function hasAnyData(){ return APPS.some(a=>!a.tool && readKey(a.key)!==null); }
+  function daysSince(iso){ if(!iso) return null; return (Date.now()-new Date(iso).getTime())/86400000; }
+  function markBackedUp(){ const m=loadMeta(); m.lastBackupAt=new Date().toISOString(); saveMeta(m); updateBackupUI(); }
+  function updateBackupUI(){
+    const m=loadMeta(), d=daysSince(m.lastBackupAt);
+    const st=document.getElementById("backupStatus");
+    if(m.lastBackupAt){ const n=Math.max(0,Math.floor(d));
+      st.textContent="Last backup on this device: "+(n===0?"today":(n+" day"+(n===1?"":"s")+" ago"));
+      st.className="bstat"+(d>=7?" warnc":" ok");
+    } else { st.textContent="No backup has ever been made on this device."; st.className="bstat warnc"; }
+    const nudge=document.getElementById("nudge");
+    const stale=hasAnyData() && (!m.lastBackupAt || d>=7);
+    if(stale){
+      nudge.style.display="block";
+      nudge.innerHTML=(!m.lastBackupAt
+          ? "<b>⚠ Back up your data.</b> No backup has been exported on this device yet. "
+          : "<b>⚠ Your backup is "+Math.floor(d)+" days old.</b> ")
+        + "Removing this Hub from your Home Screen erases <b>all</b> app data — tap here to export a backup now.";
+    } else { nudge.style.display="none"; }
+  }
+
   document.getElementById("exportAll").onclick=exportAll;
   document.getElementById("importAll").onclick=()=>document.getElementById("importFile").click();
   document.getElementById("importFile").addEventListener("change",e=>{ if(e.target.files[0]) importAll(e.target.files[0]); e.target.value=""; });
+  const nudgeEl=document.getElementById("nudge");
+  nudgeEl.addEventListener("click",exportAll);
+  nudgeEl.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); exportAll(); } });
 
   renderApps();
+  updateBackupUI();
 })();
 </script>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}</script>
@@ -206,7 +260,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260619183855-ovl";
+  var BUILD="20260619185101-ovl2";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
