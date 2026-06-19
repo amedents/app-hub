@@ -52,6 +52,16 @@
   .total b{color:var(--txt)}
   .footer{color:var(--muted);font-size:12px;text-align:center;margin-top:18px;line-height:1.6}
   .ok{color:var(--good)} .warnc{color:var(--warn)}
+  /* In-place app overlay. Apps open in a same-origin iframe INSIDE this already-dark window — NOT a
+     page navigation — so iOS never shows its white standalone page-transition frame (the flash that
+     no CSS/color-scheme can reach, because it happens between documents). Dark iframe bg = no white
+     even before the app paints. */
+  #ov{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;background:var(--bg)}
+  #ov.show{display:flex}
+  #ov .ovbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
+  #ov .ovbar button{background:var(--panel2);color:var(--txt);font-weight:700;padding:8px 13px;font-size:14px}
+  #ov .ovttl{font-size:14px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #ov iframe{flex:1;width:100%;border:0;background:var(--bg)}
 </style>
 </head>
 <body>
@@ -87,6 +97,11 @@
   </div>
 </div>
 
+<div id="ov" role="dialog" aria-modal="true" aria-label="App">
+  <div class="ovbar"><button id="ovBack" type="button">‹ Apps</button><div class="ovttl" id="ovTtl"></div></div>
+  <iframe id="ovFrame" title="App"></iframe>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -106,18 +121,41 @@
 
   function openUrl(url){ const a=document.createElement("a"); a.href=url; a.target="_blank"; a.rel="noopener noreferrer"; document.body.appendChild(a); a.click(); a.remove(); }
 
+  // ---- in-place app overlay (kills the iOS standalone navigation white-flash; see CSS note) ----
+  const ov=document.getElementById("ov"), ovFrame=document.getElementById("ovFrame"), ovTtl=document.getElementById("ovTtl");
+  let ovPushed=false;
+  function openApp(app){
+    ovTtl.textContent=app.name;
+    ovFrame.src=BASE+app.path+"/";            // same-origin: shares localStorage, no cross-frame limits
+    ov.classList.add("show");
+    document.body.style.overflow="hidden";
+    ovPushed=false;
+    // Push a history entry so an OS back-gesture (where it exists) closes the app instead of the Hub.
+    try{ history.pushState({ov:1},""); ovPushed=true; }catch(e){}
+  }
+  function closeApp(){
+    if(!ov.classList.contains("show")) return;
+    ov.classList.remove("show");
+    ovFrame.src="about:blank";                // unload the app: stop its timers, free memory
+    document.body.style.overflow="";
+  }
+  document.getElementById("ovBack").addEventListener("click",()=>{ if(ovPushed){ ovPushed=false; history.back(); } else { closeApp(); } });
+  window.addEventListener("popstate",()=>{ ovPushed=false; closeApp(); });
+
   function renderApps(){
     const box=document.getElementById("apps"); box.innerHTML="";
     let present=0, bytes=0;
     APPS.forEach(app=>{
       const v=app.tool?null:readKey(app.key); const has=!!v; if(has){ present++; bytes+=v.length; }
-      const a=document.createElement("a"); a.className="app"; a.href=BASE+app.path+"/"; a.target="_blank"; a.rel="noopener noreferrer";
+      // href kept as a graceful fallback (long-press / no-JS); click opens in-place to avoid the iOS flash.
+      const a=document.createElement("a"); a.className="app"; a.href=BASE+app.path+"/";
+      a.addEventListener("click",ev=>{ ev.preventDefault(); openApp(app); });
       const b=document.createElement("div"); b.className="badge"; b.style.setProperty("--a1",app.a1); b.style.setProperty("--a2",app.a2); b.textContent=app.glyph; a.appendChild(b);
       const info=document.createElement("div"); info.className="info";
       const nm=document.createElement("div"); nm.className="nm"; nm.textContent=app.name; info.appendChild(nm); // text node (static, but consistent & safe)
       const st=document.createElement("div"); st.className="st"+(has?" has":""); st.textContent=app.tool?"local tool · nothing to back up":(has?("saved data · "+sizeOf(v)):"no data yet"); info.appendChild(st);
       a.appendChild(info);
-      const ar=document.createElement("div"); ar.className="arrow"; ar.textContent="↗"; a.appendChild(ar);
+      const ar=document.createElement("div"); ar.className="arrow"; ar.textContent="›"; a.appendChild(ar);
       box.appendChild(a);
     });
     const t=document.getElementById("total");
@@ -168,7 +206,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260619182103-app-hub";
+  var BUILD="20260619183855-ovl";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
