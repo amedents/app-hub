@@ -126,7 +126,8 @@
     {key:"tobuy_v1",        name:"To-Buy list",      path:"to-buy",            glyph:"✓", a1:"#3ecf8e", a2:"#5b8cff"},
     {key:"twlive_v1",       name:"Twitch Live Check",path:"twitch-live",       glyph:"●", a1:"#9146ff", a2:"#eb0400"},
     {key:"aniradar_v1",     name:"Anime Radar",      path:"anime-radar",       glyph:"◎", a1:"#7c9cff", a2:"#a06bff"},
-    {key:"forzatune_v1",    name:"Forza Tune Calc",  path:"forza-tune-calc",   glyph:"⛭", a1:"#ff7a3c", a2:"#5b8cff"},
+    // Forza Tune Calc deliberately NOT listed here: still published & reachable at its direct URL
+    // (https://amedents.github.io/forza-tune-calc/), just hidden from the Hub launcher per user request.
     {key:"readmark_v1",     name:"ReadMark",         path:"readmark",          glyph:"▤", a1:"#3fd0a8", a2:"#142632"}
   ];
   const BASE="https://amedents.github.io/";
@@ -260,7 +261,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260619185101-ovl2";
+  var BUILD="20260620123510";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
