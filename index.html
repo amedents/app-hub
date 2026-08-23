@@ -56,12 +56,23 @@
      page navigation — so iOS never shows its white standalone page-transition frame (the flash that
      no CSS/color-scheme can reach, because it happens between documents). Dark iframe bg = no white
      even before the app paints. */
-  #ov{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;background:var(--bg)}
+  /* overflow:hidden is load-bearing, not tidiness: if anything inside ever exceeds this box, the
+     OVERLAY scrolls, and then every app inside the iframe scrolls with it - including elements the
+     app pinned to its own viewport. The overlay is the viewport; it must never move. */
+  #ov{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;background:var(--bg);overflow:hidden}
   #ov.show{display:flex}
   #ov .ovbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
   #ov .ovbar button{background:var(--panel2);color:var(--txt);font-weight:700;padding:8px 13px;font-size:14px}
   #ov .ovttl{font-size:14px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #ov iframe{flex:1;width:100%;border:0;background:var(--bg);opacity:0;transition:opacity .15s ease}
+  /* min-height:0 is the whole fix for "the app scrolls the Hub instead of scrolling itself".
+     A flex item's default min-height:auto REFUSES to shrink below its intrinsic size, and iOS reports
+     an iframe's intrinsic height as its CONTENT height rather than the 150px default other engines
+     use. So flex:1 alone let the iframe grow to the length of the app, the overlay overflowed, and the
+     page behind it scrolled - carrying the app's own position:fixed/absolute furniture with it, which
+     is why a status light pinned inside the app still drifted. Desktop never shows this: there the
+     intrinsic height is 150px, the item shrinks, and the iframe scrolls internally as intended.
+     Same trap as the min-width:auto note in the apps' own CSS, one axis over. */
+  #ov iframe{flex:1;min-height:0;width:100%;border:0;background:var(--bg);opacity:0;transition:opacity .15s ease}
   /* Reveal the iframe ONLY after its document has painted (JS adds .ready on load). While loading it
      is invisible over the dark #ov backdrop, so the app's white first-paint frame is never seen — this
      is what kills the flash that REMAINED after color-scheme + no-navigation (an iframe still paints a
@@ -271,7 +282,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260823215423";
+  var BUILD="20260823220152";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
