@@ -66,6 +66,13 @@
   #ov .ovbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
   #ov .ovbar button{background:var(--panel2);color:var(--txt);font-weight:700;padding:8px 13px;font-size:14px}
   #ov .ovttl{font-size:14px;color:var(--muted);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* A status dot an app can ask for. It lives HERE, in the Hub's own bar, because this bar is the only
+     chrome that is genuinely outside the app iframe's scrolling layer - an app cannot pin anything
+     against its own viewport on iOS, where a framed document's fixed and absolute furniture is
+     repainted behind the scroll gesture no matter how it is positioned. Generic on purpose: the Hub
+     knows a colour, not what it means. */
+  #ov .ovdot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;margin-left:auto;display:none}
+  #ov .ovdot.on{display:block}
   /* min-height:0 is the whole fix for "the app scrolls the Hub instead of scrolling itself".
      A flex item's default min-height:auto REFUSES to shrink below its intrinsic size, and iOS reports
      an iframe's intrinsic height as its CONTENT height rather than the 150px default other engines
@@ -125,7 +132,7 @@
 </div>
 
 <div id="ov" role="dialog" aria-modal="true" aria-label="App">
-  <div class="ovbar"><button id="ovBack" type="button">‹ Apps</button><div class="ovttl" id="ovTtl"></div></div>
+  <div class="ovbar"><button id="ovBack" type="button">‹ Apps</button><div class="ovttl" id="ovTtl"></div><i class="ovdot" id="ovDot"></i></div>
   <iframe id="ovFrame" title="App"></iframe>
   <div class="spin" aria-hidden="true"></div>
 </div>
@@ -178,11 +185,29 @@
     // Push a history entry so an OS back-gesture (where it exists) closes the app instead of the Hub.
     try{ history.pushState({ov:1},""); ovPushed=true; }catch(e){}
   }
+  // An app asks for a dot with postMessage({type:"app-status-dot", color:"#RRGGBB"}). Three guards,
+  // all of them load-bearing: same origin, from the frame that is actually open, and a STRICT six-hex
+  // colour - the value goes into a style, so anything looser is an injection point for whatever a
+  // future app decides to send.
+  const ovDot=document.getElementById("ovDot");
+  window.addEventListener("message",e=>{
+    if(e.origin!==location.origin) return;
+    if(!ov.classList.contains("show")||e.source!==ovFrame.contentWindow) return;
+    const d=e.data;
+    if(!d||d.type!=="app-status-dot") return;
+    const c=typeof d.color==="string"&&/^#[0-9a-fA-F]{6}$/.test(d.color)?d.color:null;
+    if(!c){ ovDot.classList.remove("on"); return; }
+    ovDot.style.background=c;
+    ovDot.style.boxShadow="0 0 0 5px "+c+"26";   // same halo the apps draw, ~15% alpha
+    ovDot.classList.add("on");
+  });
+
   function closeApp(){
     if(!ov.classList.contains("show")) return;
     clearTimeout(ovTimer);
     ovFrame.onload=null;
     ov.classList.remove("show","ready","loading");
+    ovDot.classList.remove("on");              // the dot belongs to the app that asked for it
     ovFrame.src="about:blank";                 // unload the app: stop its timers, free memory
     document.body.style.overflow="";
   }
@@ -284,7 +309,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260823222049";
+  var BUILD="20260823223804";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
