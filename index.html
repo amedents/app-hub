@@ -153,7 +153,12 @@
     document.body.style.overflow="hidden";
     // Reveal the iframe ONLY once its document has painted, so its white first-paint frame never shows.
     ovFrame.onload=revealApp;
-    ovFrame.src=BASE+app.path+"/";             // same-origin: shares localStorage, no cross-frame limits
+    // Cache-bust while online so a framed app can never open on a stale build. The apps' service
+    // workers deliberately ignore any URL carrying a query string, so "?v=" is guaranteed to reach the
+    // network rather than the cache. Offline it is omitted, because there the cache is the only copy
+    // there is - and a framed app's own resume-reload cannot save it: visibility and focus events fire
+    // on the TOP-LEVEL document, which is this Hub, never the iframe inside it.
+    ovFrame.src=BASE+app.path+"/"+(navigator.onLine?"?v="+Date.now():"");  // same-origin: shares localStorage
     clearTimeout(ovTimer);
     ovTimer=setTimeout(revealApp,6000);        // safety: reveal anyway if load is slow/blocked
     ovPushed=false;
@@ -266,7 +271,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260823210442";
+  var BUILD="20260823215423";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
