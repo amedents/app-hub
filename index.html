@@ -20,7 +20,9 @@
     --radius:16px; --shadow:0 8px 30px rgba(0,0,0,.4);
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
+  /* No rubber-band on the document behind the overlay: an over-scroll there slides the whole
+     iframe, and with it anything an app pinned to its own viewport. */
+  html,body{margin:0;padding:0;overscroll-behavior:none}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:radial-gradient(1100px 520px at 85% -10%,#16203a,transparent),var(--bg);
@@ -59,7 +61,7 @@
   /* overflow:hidden is load-bearing, not tidiness: if anything inside ever exceeds this box, the
      OVERLAY scrolls, and then every app inside the iframe scrolls with it - including elements the
      app pinned to its own viewport. The overlay is the viewport; it must never move. */
-  #ov{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;background:var(--bg);overflow:hidden}
+  #ov{position:fixed;inset:0;z-index:1000;display:none;flex-direction:column;background:var(--bg);overflow:hidden;overscroll-behavior:none}
   #ov.show{display:flex}
   #ov .ovbar{flex:0 0 auto;display:flex;align-items:center;gap:10px;background:var(--bg);border-bottom:1px solid var(--line);padding:calc(8px + env(safe-area-inset-top)) 12px 8px}
   #ov .ovbar button{background:var(--panel2);color:var(--txt);font-weight:700;padding:8px 13px;font-size:14px}
@@ -282,7 +284,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20260823220152";
+  var BUILD="20260823222049";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
