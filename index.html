@@ -144,8 +144,11 @@
   const APPS=[
     {key:"calwt_v1",        name:"Calorie & Weight", path:"calorie-companion", glyph:"◐", a1:"#5b8cff", a2:"#3ecf8e"},
     {key:"tobuy_v1",        name:"To-Buy list",      path:"to-buy",            glyph:"✓", a1:"#3ecf8e", a2:"#5b8cff"},
-    {key:"twlive_v1",       name:"Twitch Live Check",path:"twitch-live",       glyph:"●", a1:"#9146ff", a2:"#eb0400"},
-    {key:"aniradar_v1",     name:"Anime Radar",      path:"anime-radar",       glyph:"◎", a1:"#7c9cff", a2:"#a06bff"},
+    // hidden:true: no tile, per user request, but still published and still in Backup-All. NOT removed from APPS
+    // like Forza below: on the phone this Hub is the one storage container their data lives in, and a key
+    // missing from APPS is neither exported nor accepted back on import.
+    {key:"twlive_v1",       name:"Twitch Live Check",path:"twitch-live",       glyph:"●", a1:"#9146ff", a2:"#eb0400", hidden:true},
+    {key:"aniradar_v1",     name:"Anime Radar",      path:"anime-radar",       glyph:"◎", a1:"#7c9cff", a2:"#a06bff", hidden:true},
     // Forza Tune Calc deliberately NOT listed here: still published & reachable at its direct URL
     // (https://amedents.github.io/forza-tune-calc/), just hidden from the Hub launcher per user request.
     {key:"readmark_v1",     name:"ReadMark",         path:"readmark",          glyph:"▤", a1:"#3fd0a8", a2:"#142632"},
@@ -156,8 +159,6 @@
     {key:"queue_board_web_v1", name:"Queue Board",    path:"queue-board-web",   glyph:"≡", a1:"#4A9EFF", a2:"#3FB950", tool:true},
     // tool:true for the same reason as the Queue Board: its storage holds the key to the trading snapshot.
     {key:"paper_trader_v1",  name:"Paper Trader",     path:"paper-trader",      glyph:"↗", a1:"#4A9EFF", a2:"#004F98", tool:true},
-    // tool:true for the same reason again: its storage holds the key to the evolution board's snapshot.
-    {key:"sc2_evolution_board_v1", name:"SC2 Evolution", path:"sc2-evolution-board", glyph:"▲", a1:"#4A9EFF", a2:"#004F98", tool:true},
     // tool:true for the same reason: its storage holds the device key that opens the PC's screen.
     {key:"screen_share_v1",  name:"Screen Share",     path:"screen-share",      glyph:"▭", a1:"#5b8cff", a2:"#2b4fa8", tool:true}
   ];
@@ -223,7 +224,7 @@
   function renderApps(){
     const box=document.getElementById("apps"); box.innerHTML="";
     let present=0, bytes=0;
-    APPS.forEach(app=>{
+    APPS.filter(app=>!app.hidden).forEach(app=>{
       const v=app.tool?null:readKey(app.key); const has=!!v; if(has){ present++; bytes+=v.length; }
       // href kept as a graceful fallback (long-press / no-JS); click opens in-place to avoid the iOS flash.
       const a=document.createElement("a"); a.className="app"; a.href=BASE+app.path+"/";
@@ -238,7 +239,7 @@
     });
     const t=document.getElementById("total");
     const totalSize = bytes>=1024 ? (bytes/1024).toFixed(1)+" KB" : bytes+" B";
-    t.innerHTML = present ? ("<b>"+present+"</b> of "+APPS.length+" apps have data here · "+totalSize+" total") : "No app data on this device yet.";
+    t.innerHTML = present ? ("<b>"+present+"</b> of "+APPS.filter(a=>!a.hidden).length+" apps have data here · "+totalSize+" total") : "No app data on this device yet.";
   }
 
   // ---- backup all ----
@@ -315,7 +316,7 @@
    SW can't refresh them. On resume/focus, refetch this page; if its build token changed, reload once.
    BUILD is the literal placeholder in the source (feature inert) and is stamped to a unique id at publish. */
 (function(){
-  var BUILD="20261111181754";
+  var BUILD="20261113104208";
   if(BUILD.indexOf("APP_BUILD")>-1) return;            // unstamped (local/dev) -> disabled
   var busy=false;
   function check(){
